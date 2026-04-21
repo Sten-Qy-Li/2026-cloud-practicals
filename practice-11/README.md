@@ -1,3 +1,433 @@
 # Practice 11
 
 Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice11
+
+> Theme: Two-node K3s (Kubernetes) cluster on OpenStack — pods, replicasets, deployments, services, secrets, persistent volumes.
+
+> Note: the existing VM at `172.17.65.54` is **not** used here — this practical requires **two fresh VMs**. SSH into each using the same key: `ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<VM_IP>`.
+
+> Reminder: If you need Docker Hub pulls and hit rate limits, swap the image prefix to `registry.hpc.ut.ee/mirror/<image>`.
+
+---
+
+## Exercise 11.1 — Build the Two-Node K3s Cluster
+
+### Step-by-step
+
+1. On the **OpenStack dashboard**, launch two VMs:
+   - Image: Ubuntu 22.04 · Flavor: `g4.r4c2` · Security group: `default` plus SSH (22) and NodePort range (30000–32767).
+   - Name them `Lab11_Li_Master` and `Lab11_Li_Worker`.
+2. Note both public IPs. SSH into **Master**:
+   ```powershell
+   ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<MASTER_IP>
+   ```
+3. On Master, install K3s server and read the node token in one chained command:
+   ```bash
+   curl -sfL https://get.k3s.io | sh - && sudo cat /var/lib/rancher/k3s/server/node-token
+   ```
+4. Copy the token. Open a second PowerShell and SSH into **Worker**:
+   ```powershell
+   ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<WORKER_IP>
+   ```
+5. On Worker, join the cluster (single line, token + master IP substituted):
+   ```bash
+   curl -sfL https://get.k3s.io | K3S_URL=https://<MASTER_IP>:6443 K3S_TOKEN=<NODE_TOKEN> sh -
+   ```
+6. Back on **Master**, verify both nodes are `Ready`:
+   ```bash
+   sudo kubectl get nodes -o wide
+   ```
+7. (Optional — avoid `sudo` on every kubectl call.) Add to `~/.bashrc` on Master:
+   ```bash
+   echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc && sudo chmod 644 /etc/rancher/k3s/k3s.yaml && source ~/.bashrc
+   ```
+
+### Exercise Deliverables
+
+- Screenshot of `kubectl get nodes -o wide` output showing two `Ready` nodes — save as `11_1_nodes.png`.
+
+### Checklist (fill in before proceeding)
+
+- [ ] Both VMs up and reachable over SSH.
+- [ ] Master shows Worker as `Ready`.
+- [ ] Screenshot archived.
+
+---
+
+## Exercise 11.2 — Pods, Namespaces, ReplicaSets
+
+### 11.2.1 — Namespaces
+
+On **Master**, run the list/create pair:
+```bash
+kubectl get namespaces && kubectl create namespace li && kubectl get namespaces
+```
+
+### 11.2.2 — Pod via CLI and YAML
+
+Imperative busybox pod:
+```bash
+kubectl run busybox --image=busybox --restart=Never -n li -- /bin/sh -c "echo Hello Kubernetes!" && kubectl logs busybox -n li
+```
+
+Create `first_pod.yml` on Master:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: first
+  namespace: li
+  labels:
+    app: first
+spec:
+  containers:
+  - name: busybox
+    image: busybox
+    command: ["/bin/sh", "-c", "while true; do echo hello from first; sleep 5; done"]
+```
+Deploy, inspect, exec — chained:
+```bash
+kubectl create -f first_pod.yml && kubectl get pods -n li && kubectl logs first -n li
+```
+Shell into it when you want:
+```bash
+kubectl exec -it first -n li -- /bin/sh
+```
+
+### 11.2.3 — ReplicaSet
+
+Create `replicaset.yml`:
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: web
+  namespace: li
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+```
+Apply + scale experiments:
+```bash
+kubectl apply -f replicaset.yml && kubectl get rs -n li && kubectl get pods -n li
+kubectl scale --replicas=10 rs/web -n li && kubectl get pods -n li
+kubectl scale --replicas=1 rs/web -n li && kubectl get pods -n li
+```
+Capture the describe output for the deliverable:
+```bash
+kubectl describe pod first -n li | less
+```
+
+### Exercise Deliverables
+
+- `first_pod.yml`, `replicaset.yml` committed to the repo.
+- Screenshot of `kubectl describe pod first -n li` — save as `11_2_describe.png`.
+- Screenshot of `kubectl get namespaces` — save as `11_2_namespaces.png`.
+
+### Checklist (fill in before proceeding)
+
+- [ ] Namespace `li` exists.
+- [ ] Pod `first` runs and logs show the loop output.
+- [ ] ReplicaSet scaled up to 10 then back to 1 successfully.
+- [ ] Both YAML files saved.
+
+---
+
+## Exercise 11.3 — Deployments, Multi-Service, Secrets
+
+### 11.3.1 — Flask Deployment
+
+Create `first_deployment.yml` (swap `<DOCKERHUB_ID>` for your own, e.g. `qunyanli/lab3flask1.0`):
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-deployment
+  namespace: li
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask
+  template:
+    metadata:
+      labels:
+        app: flask
+    spec:
+      containers:
+      - name: flask
+        image: <DOCKERHUB_ID>/lab3flask1.0
+        ports:
+        - containerPort: 5000
+```
+Apply, rolling-update, clean up:
+```bash
+kubectl apply -f first_deployment.yml && kubectl get deployments -n li
+kubectl set image deployments/flask-deployment flask=shivupoojar/message-board.v2 -n li && kubectl rollout status deployment/flask-deployment -n li
+kubectl delete -f first_deployment.yml
+```
+
+### 11.3.2 + 11.3.3 + 11.3.4 — Combined Message-Board File
+
+Create `message-board.yml` (two deployments separated by `---`). Replace `<DOCKERHUB_ID>` and `<YOUR_PASSWORD>`:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-deployment
+  namespace: li
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask
+  template:
+    metadata:
+      labels:
+        app: flask
+    spec:
+      containers:
+      - name: flask
+        image: <DOCKERHUB_ID>/lab3flask1.0
+        ports:
+        - containerPort: 5000
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret-config
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret-config
+              key: password
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgresql:5432/postgres"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  namespace: li
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14.1-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret-config
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret-config
+              key: password
+```
+Create the secret and apply everything:
+```bash
+kubectl create secret generic postgres-secret-config -n li --from-literal=username=postgres --from-literal=password=<YOUR_PASSWORD> && kubectl get secret postgres-secret-config -n li -o yaml
+kubectl apply -f message-board.yml && kubectl get deployments -n li && kubectl get pods -n li
+```
+
+### Exercise Deliverables
+
+- `first_deployment.yml`, `message-board.yml` committed.
+- Screenshot of `kubectl get deployments -n li` — save as `11_3_deployments.png`.
+
+### Checklist (fill in before proceeding)
+
+- [ ] Secret created and visible.
+- [ ] Both deployments show desired replicas.
+- [ ] Transient CrashLoopBackOff is acceptable at this stage — the services are not yet in place.
+
+---
+
+## Exercise 11.4 — Services + Scaling
+
+### Step-by-step
+
+Append these two service blocks to `message-board.yml` (at the bottom, each starting with `---`):
+```yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-flask
+  namespace: li
+spec:
+  type: NodePort
+  selector:
+    app: flask
+  ports:
+  - protocol: TCP
+    port: 5000
+    targetPort: 5000
+    name: tcp-5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: li
+  labels:
+    name: postgresql
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+```
+Apply, inspect, grab the NodePort, test scaling:
+```bash
+kubectl apply -f message-board.yml && kubectl get pods -o wide -n li && kubectl get svc -n li
+kubectl scale deployment flask-deployment --replicas=2 -n li && kubectl get pods -n li && kubectl get deployment -n li
+```
+From your laptop, browse `http://<MASTER_IP>:<NODEPORT>` (NodePort starts with `3...`). If it times out, open the NodePort range in the OpenStack security group.
+
+### Exercise Deliverables
+
+- Screenshot of the Message Board webpage reached via NodePort — save as `11_4_webpage.png`.
+- Screenshot of `kubectl get pods` after scaling to 2 replicas — save as `11_4_scale.png`.
+
+### Checklist (fill in before proceeding)
+
+- [ ] Messages can be posted via the browser.
+- [ ] Scaled Flask deployment shows 2 running replicas.
+
+---
+
+## Exercise 11.5 — Persistent Volume + Claim
+
+### Step-by-step
+
+Create `data-volume.yml`:
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv-volume
+  namespace: li
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-db-claim
+  namespace: li
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+  storageClassName: manual
+```
+Modify the Postgres block of `message-board.yml` — add `PGDATA` env and the mount/volume:
+```yaml
+        env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        # keep POSTGRES_USER + POSTGRES_PASSWORD from before
+        volumeMounts:
+        - name: data-storage-volume
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: data-storage-volume
+        persistentVolumeClaim:
+          claimName: postgres-db-claim
+```
+Apply + verify:
+```bash
+kubectl apply -f data-volume.yml && kubectl get pv,pvc -n li
+kubectl apply -f message-board.yml && kubectl get pods -n li
+kubectl describe pod <POSTGRES_POD_NAME> -n li | less
+```
+Post a few messages through the web UI, then test persistence — delete and reapply Postgres, messages must stay:
+```bash
+kubectl delete deployment postgres-deployment -n li && kubectl apply -f message-board.yml
+```
+
+### Exercise Deliverables
+
+- `data-volume.yml`, updated `message-board.yml`.
+- Screenshot of `kubectl describe pod <postgres>` showing `Mounts:` and `Volumes:` sections — save as `11_5_mounts.png`.
+
+### Checklist (fill in before proceeding)
+
+- [ ] `kubectl get pv,pvc` shows `Bound`.
+- [ ] Messages survive a Postgres redeploy.
+
+---
+
+## Bonus — Liveness & Readiness Probes
+
+### Step-by-step
+
+Add to the Flask container in `message-board.yml`:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /
+    port: 5000
+  initialDelaySeconds: 0
+readinessProbe:
+  httpGet:
+    path: /?msg=Hello
+    port: 5000
+  initialDelaySeconds: 0
+```
+Apply, watch, then raise `initialDelaySeconds` to 8 and compare:
+```bash
+kubectl apply -f message-board.yml && kubectl describe pod <flask_pod_name> -n li
+```
+
+### Exercise Deliverables
+
+- Screenshot of the Events section from `kubectl describe pod` — save as `11_bonus_events.png`.
+- Short note explaining the behaviour change after raising `initialDelaySeconds`.
+
+---
+
+## Tear-down
+
+1. On the OpenStack dashboard, terminate both VMs. Detach and delete any leftover volumes.
+
+### Final Practical Checklist
+
+- [ ] 6 screenshots collected (1_nodes, 2_namespaces, 2_describe, 3_deployments, 4_webpage, 4_scale, 5_mounts — the spec asks for 6; pick the most legible).
+- [ ] 5 YAML files in the repo: `first_pod.yml`, `first_deployment.yml`, `replicaset.yml`, `message-board.yml`, `data-volume.yml`.
+- [ ] Both VMs deleted.
+- [ ] Deliverables uploaded to the course submission system.
