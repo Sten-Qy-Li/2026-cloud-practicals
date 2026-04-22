@@ -13,7 +13,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice10
 ### Step-by-step
 
 1. Sign in to the Azure Portal with your UT student subscription.
-2. Create a new Resource Group named `lab10` (region: `North Europe`).
+2. Create a new Resource Group named `lab10` (region: `Sweden Central`).
 3. Inside `lab10`, create:
    - an **App Service (Linux, Python 3.9)** — Free F1 tier.
    - a **Storage Account** → add a **Blob container** named `images`.
@@ -68,7 +68,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice10
 2. Refresh the homepage 10–15 times to generate GET traffic.
 3. In the Azure Portal → Blob container `images`, confirm the uploaded files appear.
 4. In Cosmos DB → **Data Explorer**, open `lab5messagesdb/lab5messages` and confirm the documents are present.
-5. On the Web App → **Application Insights → Application Map**. Take a full-window screenshot that clearly shows your username (`turbot` / `li_qun_yan@outlook.com`) in the top-right corner.
+5. On the Web App → **Application Insights → Application Map**. Take a full-window screenshot that clearly shows your university username (`qun.yan.li@ut.ee`) in the top-right corner.
 
 ### Exercise Deliverables
 

@@ -77,7 +77,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice12
 
    variable "location" {
      description = "The Azure Region in which all resources are created."
-     default     = "northeurope"
+     default     = "swedencentral"
    }
 
    variable "subscription_id" {
@@ -255,7 +255,7 @@ terraform apply -auto-approve | tee lab12_4b.out && az storage container list --
    ```
 4. Visit `https://lilab12-zipdeploy.azurewebsites.net/`. Post a message with an image. Take the screenshot (URL bar + your message + the uploaded image must all be visible) — save as `lab12_5b.png`.
 
-> If the deploy fails with "quota exceeded" on the F1 tier, check that you have no other F1 plan in `northeurope`; delete it first.
+> If the deploy fails with "quota exceeded" on the F1 tier, check that you have no other F1 plan in `swedencentral`; delete it first.
 
 ### Exercise Deliverables
 

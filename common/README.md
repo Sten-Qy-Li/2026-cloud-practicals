@@ -6,6 +6,7 @@ Please help to guide me through the practicals.
 
 - **Pseudonym:** `turbot`
 - **Last name:** `Li`
+- **University email:** `qun.yan.li@ut.ee`
 - **VM IP address:** `172.17.65.54`
 
 Please let me know if the practical requires additional student-particular info, I will provide it for you if possible.

@@ -15,7 +15,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 ### Step-by-step
 
 1. In the Azure Portal search for **IoT Hub** → Create.
-2. Resource group: `lab13`. Region: `North Europe`. Tier: **Free F1**.
+2. Resource group: `lab13`. Region: `Sweden Central`. Tier: **Free F1**.
 3. Name: `iothub-li-<random>` (must include your surname and be globally unique).
 4. After creation, in the IoT Hub blade → **Devices → Add device** → ID `device-li-01`. Auth type: **Symmetric key**. Auto-generate keys. Save.
 5. Open the device → copy the **Primary key** (this becomes `ACCESS_KEY`).

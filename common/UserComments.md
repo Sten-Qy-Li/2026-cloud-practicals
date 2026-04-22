@@ -14,9 +14,24 @@ Note to self:
 
 ---
 
-## 1776835422
+## 1776837718
 
 - [ ] Checked by user
+
+### `practice-x\README.md`
+
+1. Remove all instances of `li_qun_yan@outlook.com` (that email is not used anywhere in this course). The university email account is `qun.yan.li@ut.ee`.
+
+2. Substitute all instances of Azure region: `North Europe` with Azure region: `Sweden Central`, because `North Europe` Azure region doesn’t work for my Azure account, but `Sweden Central` does.
+
+3. Request coding agent to commit and push the local repository to remote. (Every file in the repository should be committed and pushed, exclude files only in coding agent’s best judgement.)
+
+
+---
+
+## 1776835422
+
+- [x] Checked by user
 
 1. Request coding agent to compare the updated `common\README.md` with the current state of the `practice-x\README.md` documents, and update the `practice-x\README.md` documents as needed.
 
