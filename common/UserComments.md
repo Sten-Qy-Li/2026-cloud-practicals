@@ -14,9 +14,19 @@ Note to self:
 
 ---
 
-## 1776834917
+## 1776835422
 
 - [ ] Checked by user
+
+1. Request coding agent to compare the updated `common\README.md` with the current state of the `practice-x\README.md` documents, and update the `practice-x\README.md` documents as needed.
+
+2. Request coding agent to commit and push the local repository to remote. (Every file in the repository should be committed and pushed, exclude files only in coding agent’s best judgement.)
+
+---
+
+## 1776834917
+
+- [x] Checked by user
 
 ### `common\README.md`
 
@@ -31,5 +41,3 @@ Add five more comments in the Markdown file (file and comments should be re-writ
 * In each Practical `README.md` file, at the end of each Practical, coding agent should list the deliverables needed for final checks before submission.
 
 * If the course Practical requires written answers/responses from the student, the answer/response should be in clear B1-level English, with short easy-to-follow sentences, the technical terminology of cloud computing technologies, and in mostly third person passive voice.
-
-

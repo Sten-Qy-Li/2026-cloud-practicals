@@ -272,7 +272,16 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice14
 
 ### Bonus Deliverables
 
-- `docker-compose.yaml`, `.env.example` (scrub secrets), proof screenshots.
+- `docker-compose.yaml`.
+- `.env.example` — the `.env` template with secrets scrubbed.
+- `14_bonus_compose_ps.png` — `docker compose ps` showing all three services `Up`.
+- `14_bonus_webpage.png` — messageboard reachable via `http://<LAB14_IP>:5000/` after a clean `docker compose up`.
+
+### Checklist (fill in before proceeding)
+
+- [ ] `docker compose down -v && docker compose up -d --build` reproduces the whole stack from scratch.
+- [ ] `.env` is in `.gitignore`; only `.env.example` is committed.
+- [ ] Bucket policy applied automatically on first boot (no manual console step required).
 
 ---
 
@@ -286,8 +295,23 @@ then delete the VM from OpenStack.
 
 ### Final Practical Checklist
 
-- [ ] 4 screenshots: `14_2_mongo_shell.png`, `14_3_minio_bucket.png`, `14_4_webpage.png`, `14_4_image_url.png`.
-- [ ] Submit app URL `http://<LAB14_IP>:5000/`.
-- [ ] Source code: Python files, `Dockerfile`, `requirements.txt`, optional `docker-compose.yaml` — no `.venv`, no `.env`.
-- [ ] VM + services still running for grader access.
-- [ ] Deliverables uploaded.
+**Screenshots archived:**
+
+- [ ] `14_2_mongo_shell.png` — mongosh query output (Ex 14.2)
+- [ ] `14_3_minio_bucket.png` — `images` bucket + VM IP in URL bar (Ex 14.3)
+- [ ] `14_4_webpage.png` — messageboard homepage with VM IP (Ex 14.4)
+- [ ] `14_4_image_url.png` — direct blob URL loading the uploaded image (Ex 14.4)
+- [ ] `14_bonus_compose_ps.png`, `14_bonus_webpage.png` — Compose stack proof (Bonus)
+
+**Source committed:**
+
+- [ ] Modified messageboard Python file(s) + `requirements.txt`.
+- [ ] `Dockerfile`.
+- [ ] `docker-compose.yaml` + `.env.example` (Bonus).
+- [ ] No `.venv`, no `.env`, no hardcoded keys committed.
+
+**Submission & operational state:**
+
+- [ ] Submit app URL `http://<LAB14_IP>:5000/` to the course.
+- [ ] VM + all three containers still running (auto-restart verified) for grader access — do **not** terminate the VM yet.
+- [ ] All deliverables uploaded to the course submission system.

@@ -303,8 +303,22 @@ In Azure Portal: delete resource group `lab13`.
 
 ### Final Practical Checklist
 
-- [ ] 4 screenshots captured: `13_2_arrival.png`, `13_3_consumer.png`, `13_5_blobs.png`, `13_6_multi_devices.png`.
-- [ ] 3 Python files committed: `pyIoTDevice.py`, `consumeIoTData.py`, `selfRegisterIoTDevice.py` (no `.env`, no `__pycache__`).
-- [ ] No hardcoded keys — all read from env vars.
+**Screenshots archived:**
+
+- [ ] `13_2_arrival.png` — IoT Hub Overview spike (Ex 13.2)
+- [ ] `13_3_consumer.png` — device + consumer side-by-side (Ex 13.3)
+- [ ] `13_5_blobs.png` — `iot-data` container with routed JSON (Ex 13.5)
+- [ ] `13_6_multi_devices.png` — dual-window DPS registrations (Ex 13.6)
+
+**Source committed:**
+
+- [ ] `pyIoTDevice.py` (updated through 13.4).
+- [ ] `consumeIoTData.py`.
+- [ ] `selfRegisterIoTDevice.py`.
+- [ ] No `.env`, no `__pycache__`, no hardcoded keys — every secret read from env vars.
+
+**Cleanup & submission:**
+
+- [ ] Sender script stopped (free-tier quota preserved).
 - [ ] Resource group `lab13` deleted.
-- [ ] Deliverables uploaded.
+- [ ] All deliverables uploaded to the course submission system.

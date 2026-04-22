@@ -278,7 +278,22 @@ terraform destroy -auto-approve && az group list -o table
 
 ### Final Practical Checklist
 
-- [ ] `main.tf`, `variable.tf`, `lab-app/python-lab-app.zip` committed to the repo.
-- [ ] Deliverables for 12.2, 12.3a/b, 12.4a/b, 12.5a/b present (7 files total).
-- [ ] Resource group `lilab12-resource-group` destroyed.
-- [ ] Deliverables uploaded to the course submission system.
+**Terraform outputs / screenshots archived:**
+
+- [ ] `lab12_2.out` (or `lab12_2.png`) — resource group created (Ex 12.2)
+- [ ] `lab12_3a.out` — Cosmos account only (Ex 12.3)
+- [ ] `lab12_3b.out` — Cosmos database + container (Ex 12.3)
+- [ ] `lab12_4a.out` — storage account only (Ex 12.4)
+- [ ] `lab12_4b.out` — storage container added (Ex 12.4)
+- [ ] `lab12_5a.out` — web app deployed (Ex 12.5)
+- [ ] `lab12_5b.png` — working messageboard (Ex 12.5)
+
+**Source committed:**
+
+- [ ] `main.tf`, `variable.tf`.
+- [ ] `lab-app/python-lab-app.zip` (flat layout, no `<SUBSCRIPTION_ID>` hardcoded anywhere outside `variable.tf`).
+
+**Cleanup & submission:**
+
+- [ ] Resource group `lilab12-resource-group` destroyed via `terraform destroy`.
+- [ ] All deliverables uploaded to the course submission system.

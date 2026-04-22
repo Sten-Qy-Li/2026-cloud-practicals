@@ -417,7 +417,13 @@ kubectl apply -f message-board.yml && kubectl describe pod <flask_pod_name> -n l
 ### Exercise Deliverables
 
 - Screenshot of the Events section from `kubectl describe pod` — save as `11_bonus_events.png`.
-- Short note explaining the behaviour change after raising `initialDelaySeconds`.
+- Short note explaining the behaviour change after raising `initialDelaySeconds` — save as `11_bonus_note.md`. Follow the written-response style in [`common/README.md`](../common/README.md) (B1-level English, short sentences, mostly third person passive voice).
+
+### Checklist (fill in before proceeding)
+
+- [ ] Liveness + readiness probes applied and pod restarts observed.
+- [ ] `11_bonus_events.png` saved.
+- [ ] `11_bonus_note.md` saved.
 
 ---
 
@@ -427,7 +433,25 @@ kubectl apply -f message-board.yml && kubectl describe pod <flask_pod_name> -n l
 
 ### Final Practical Checklist
 
-- [ ] 6 screenshots collected (1_nodes, 2_namespaces, 2_describe, 3_deployments, 4_webpage, 4_scale, 5_mounts — the spec asks for 6; pick the most legible).
-- [ ] 5 YAML files in the repo: `first_pod.yml`, `first_deployment.yml`, `replicaset.yml`, `message-board.yml`, `data-volume.yml`.
-- [ ] Both VMs deleted.
-- [ ] Deliverables uploaded to the course submission system.
+**Screenshots archived:**
+
+- [ ] `11_1_nodes.png` — two `Ready` nodes (Ex 11.1)
+- [ ] `11_2_namespaces.png` — `kubectl get namespaces` (Ex 11.2)
+- [ ] `11_2_describe.png` — `kubectl describe pod first -n li` (Ex 11.2)
+- [ ] `11_3_deployments.png` — `kubectl get deployments -n li` (Ex 11.3)
+- [ ] `11_4_webpage.png` — Message Board via NodePort (Ex 11.4)
+- [ ] `11_4_scale.png` — pods after scaling (Ex 11.4)
+- [ ] `11_5_mounts.png` — Postgres pod with PV mount (Ex 11.5)
+- [ ] `11_bonus_events.png` — probe events (Bonus)
+
+> The course spec asks for 6 screenshots — pick the 6 most legible above. The bonus screenshot is additional.
+
+**YAML & notes committed:**
+
+- [ ] `first_pod.yml`, `replicaset.yml`, `first_deployment.yml`, `message-board.yml`, `data-volume.yml`.
+- [ ] `11_bonus_note.md` — probe behaviour write-up.
+
+**Cleanup & submission:**
+
+- [ ] Both VMs deleted in OpenStack.
+- [ ] All deliverables uploaded to the course submission system.

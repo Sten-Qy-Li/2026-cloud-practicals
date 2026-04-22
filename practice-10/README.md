@@ -221,6 +221,16 @@ Save as `Q4_4.png`.
 
 ### Final Practical Checklist
 
-- [ ] All 16 screenshots archived with filenames matching spec.
+**All deliverables archived (16 screenshots):**
+
+- [ ] `10_3.png` — Application Map (Ex 10.3)
+- [ ] `Q1_1_3.png`, `Q1_2.png`, `Q1_4.png`, `Q1_7.png`, `Q1_8.png` — App Service KQL (Ex 10.4.1)
+- [ ] `Q2_2.png`, `Q2_3.png`, `Q2_4.png`, `Q2_5.png` — Blob Storage KQL (Ex 10.4.2)
+- [ ] `Q3_4.png`, `Q3_5.png`, `Q3_7.png` — Cosmos DB KQL (Ex 10.4.3)
+- [ ] `Q4_2.png`, `Q4_3.png`, `Q4_4.png` — Platform logs (Ex 10.5)
+
+**Cleanup & submission:**
+
+- [ ] Username visible in every screenshot.
 - [ ] Resource group `lab10` deleted.
-- [ ] Deliverables uploaded to the course submission system.
+- [ ] All deliverables uploaded to the course submission system.
