@@ -8,6 +8,8 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 > Timing note: Exercise 13.4 sends one message every 10 s from the CSV. Do not leave it running — you will blow through the daily free quota. Archive the screenshots with their timestamps for evidence.
 
+> Resource-name suffix: the instructions below use the suggested 4-character suffix **`m2q8`** for every globally-unique resource (IoT Hub, Storage Account, DPS). If Azure reports "name already taken", pick another 4–5 char lowercase alphanumeric suffix (e.g. `m2q9`, `h7v3`) and use the **same** suffix everywhere — the resource names and every script constant (`iot_hub_name`, `lilab13iot…`) must stay in sync.
+
 ---
 
 ## Exercise 13.1 — Create the IoT Hub + Register a Device
@@ -21,7 +23,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 3. Create the IoT Hub:
    - Portal top search → `IoT Hub` → **+ Create**.
-   - **Basics tab:** Subscription: UT student · Resource group: `lab13` · IoT hub name: `iothub-li-<random>` (globally unique; must contain `li`) · Region: `Sweden Central`.
+   - **Basics tab:** Subscription: UT student · Resource group: `lab13` · IoT hub name: `iothub-li-m2q8` (globally unique; must contain `li`) · Region: `Sweden Central`.
    - **Management tab:** Tier: **Free** · Daily message limit: `8000`.
    - **Networking / Add-ons / Tags:** leave defaults.
    - **Review + create → Create**. Deployment takes ~2–5 minutes.
@@ -74,7 +76,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
            rawtoken['skn'] = policy_name
        return 'SharedAccessSignature ' + urllib.parse.urlencode(rawtoken)
 
-   iot_hub_name = 'iothub-li-<random>'
+   iot_hub_name = 'iothub-li-m2q8'
    hostname = f'{iot_hub_name}.azure-devices.net'
    device_id = 'device-li-01'
    username = f'{device_id}@sas.{iot_hub_name}'
@@ -217,7 +219,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 ### Step-by-step
 
 1. Create the storage target (skip if already present from Practice 10):
-   - Portal top search → `Storage accounts` → **+ Create** → Resource group: `lab13` · Name: `lilab13iot<random>` (3–24 lowercase letters/digits) · Region: `Sweden Central` · Redundancy: **LRS** → **Review + create → Create**.
+   - Portal top search → `Storage accounts` → **+ Create** → Resource group: `lab13` · Name: `lilab13iotm2q8` (3–24 lowercase letters/digits) · Region: `Sweden Central` · Redundancy: **LRS** → **Review + create → Create**.
    - Open the storage account → **Data storage → Containers → + Container** → Name: `iot-data` · Anonymous access level: **Private** → **Create**.
 
 2. Configure the IoT Hub route:
@@ -225,7 +227,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
    - Name: `telemetry-to-storage`.
    - Endpoint: click **+ Add endpoint → Storage**.
      - Endpoint name: `blob-iot-data`.
-     - **Pick a container** → Subscription: UT student · Storage account: `lilab13iot<random>` · Container: `iot-data`.
+     - **Pick a container** → Subscription: UT student · Storage account: `lilab13iotm2q8` · Container: `iot-data`.
      - Encoding: **JSON** · Authentication type: **Key-based**.
      - Leave batch frequency / chunk size / file name format at defaults.
      - **Create**.
@@ -254,12 +256,12 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 1. Create the DPS resource:
    - Portal top search → `Device Provisioning Services` → **+ Create**.
-   - Subscription: UT student · Resource group: `lab13` · Name: `dps-li-<random>` · Region: `Sweden Central` · Pricing tier: **S1 (free units available)**.
+   - Subscription: UT student · Resource group: `lab13` · Name: `dps-li-m2q8` · Region: `Sweden Central` · Pricing tier: **S1 (free units available)**.
    - **Review + create → Create**.
 
 2. Link the existing IoT Hub:
    - Open the DPS resource → left blade **Settings → Linked IoT hubs → + Add**.
-   - Subscription: UT student · IoT hub: `iothub-li-<random>` · Access Policy: `iothubowner` → **Save**.
+   - Subscription: UT student · IoT hub: `iothub-li-m2q8` · Access Policy: `iothubowner` → **Save**.
 
 3. Create the enrollment group:
    - DPS blade → left blade **Settings → Manage enrollments → Enrollment groups tab → + Add enrollment group**.
