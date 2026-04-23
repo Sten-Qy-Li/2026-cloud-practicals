@@ -14,30 +14,51 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice11
 
 ### Step-by-step
 
-1. On the **OpenStack dashboard**, launch two VMs:
-   - Image: Ubuntu 22.04 · Flavor: `g4.r4c2` · Security group: `default` plus SSH (22) and NodePort range (30000–32767).
-   - Name them `Lab11_Li_Master` and `Lab11_Li_Worker`.
-2. Note both public IPs. SSH into **Master**:
+1. Prepare the OpenStack security group first (so the VMs have it applied at launch):
+   - OpenStack dashboard → **Project → Network → Security Groups** → check if `lab11-k3s` already exists; otherwise **+ Create Security Group** → Name: `lab11-k3s` → **Create**.
+   - Open `lab11-k3s` → **Manage Rules → + Add Rule** and add the three rules:
+     - Rule: **SSH** (or Custom TCP Rule, port 22) · Remote: **CIDR** `0.0.0.0/0` → **Add**.
+     - Rule: **Custom TCP Rule** · Port Range: `6443` · Remote: CIDR `0.0.0.0/0` → **Add** (K3s API server).
+     - Rule: **Custom TCP Rule** · Port Range: `30000 – 32767` · Remote: CIDR `0.0.0.0/0` → **Add** (NodePort services).
+
+2. Launch two VMs. Do **each** twice (once named `Lab11_Li_Master`, once `Lab11_Li_Worker`):
+   - **Project → Compute → Instances → Launch Instance**.
+   - **Details tab:** Instance Name: `Lab11_Li_Master` (or `Lab11_Li_Worker`) · Count: `1`.
+   - **Source tab:** Select Boot Source: **Image** · Create New Volume: **Yes** · Volume Size: `15 GB` · Delete Volume on Instance Delete: **Yes** · Image: **Ubuntu 22.04 LTS** (click the up-arrow next to it).
+   - **Flavor tab:** select `g4.r4c2` (up-arrow).
+   - **Networks tab:** `shared` or the default student network (up-arrow).
+   - **Security Groups tab:** deselect `default` · select `lab11-k3s` (up-arrow).
+   - **Key Pair tab:** select your existing key (the one matching `C:\Users\qunyan\Desktop\Qun Yan Li.pem`).
+   - **Launch Instance**. Repeat for the second VM.
+
+3. Once both show **Status: Active** and **Power State: Running**, copy both public IPs from the **IP Address** column (use the Floating IP if one is assigned; raw VMs on the `shared` net already have a routable IP).
+
+4. SSH into **Master** from Windows PowerShell:
    ```powershell
    ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<MASTER_IP>
    ```
-3. On Master, install K3s server and read the node token in one chained command:
+5. On Master, install K3s server and read the node token in one chained command:
    ```bash
    curl -sfL https://get.k3s.io | sh - && sudo cat /var/lib/rancher/k3s/server/node-token
    ```
-4. Copy the token. Open a second PowerShell and SSH into **Worker**:
+   Copy the full token (starts with a long hex string, a `::`, then `server:` and more hex) — you need it in step 7.
+
+6. Open a **second** Windows PowerShell window and SSH into **Worker**:
    ```powershell
    ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<WORKER_IP>
    ```
-5. On Worker, join the cluster (single line, token + master IP substituted):
+
+7. On Worker, join the cluster (single line, substitute `<MASTER_IP>` and paste `<NODE_TOKEN>` from step 5):
    ```bash
    curl -sfL https://get.k3s.io | K3S_URL=https://<MASTER_IP>:6443 K3S_TOKEN=<NODE_TOKEN> sh -
    ```
-6. Back on **Master**, verify both nodes are `Ready`:
+
+8. Back on **Master** (the first SSH window), verify both nodes are `Ready`:
    ```bash
    sudo kubectl get nodes -o wide
    ```
-7. (Optional — avoid `sudo` on every kubectl call.) Add to `~/.bashrc` on Master:
+
+9. (Optional but recommended — avoid `sudo` on every `kubectl` call.) On Master:
    ```bash
    echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc && sudo chmod 644 /etc/rancher/k3s/k3s.yaml && source ~/.bashrc
    ```

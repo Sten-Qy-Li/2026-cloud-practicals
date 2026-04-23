@@ -12,20 +12,32 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice12
 
 ### Step-by-step
 
-1. On OpenStack, launch a new Ubuntu **24.04** VM (`g4.r4c2`). Name it `Lab12_Li`. Keep the existing key pair.
-2. SSH in:
+1. On OpenStack, launch a new VM for this practical:
+   - **Project → Compute → Instances → Launch Instance**.
+   - **Details:** Instance Name: `Lab12_Li` · Count: `1`.
+   - **Source:** Boot Source: **Image** · Create New Volume: **Yes** · Volume Size: `20 GB` · Delete Volume on Instance Delete: **Yes** · Image: **Ubuntu 24.04 LTS** (up-arrow to select).
+   - **Flavor:** `g4.r4c2` (up-arrow).
+   - **Networks:** `shared` (or the default student network).
+   - **Security Groups:** ensure the group allowing SSH (port 22) is selected.
+   - **Key Pair:** select your existing key (matching `C:\Users\qunyan\Desktop\Qun Yan Li.pem`).
+   - **Launch Instance**. Wait for **Status: Active** and copy the public IP — call it `<LAB12_VM_IP>`.
+
+2. SSH in from Windows PowerShell:
    ```powershell
    ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<LAB12_VM_IP>
    ```
-3. Install Azure CLI + Terraform via apt, and verify both in one chained run:
+
+3. Install Azure CLI + Terraform via apt and verify both in one chained run:
    ```bash
    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash && sudo apt-get update && sudo apt-get install -y gnupg software-properties-common && wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list && sudo apt-get update && sudo apt-get install -y terraform && terraform -help | head -n 5 && az --version | head -n 1
    ```
+
 4. Authenticate to Azure and capture the subscription ID:
    ```bash
    az login --use-device-code && az account list -o table
    ```
-   Record the `SubscriptionId` — you will paste it into `variable.tf`.
+   The command prints a device code — open the displayed URL in a browser on your Windows machine, paste the code, and sign in with `qun.yan.li@ut.ee`. Choose directory **Tartu Ülikool** if prompted.
+   After `az account list`, copy the `SubscriptionId` column value for the UT student subscription — you will paste it into `variable.tf` in Exercise 12.2.
 
 ### Exercise Deliverables
 
@@ -201,20 +213,28 @@ terraform apply -auto-approve | tee lab12_4b.out && az storage container list --
 
 ### Step-by-step
 
-1. Prepare the application zip. On your local Windows machine or the lab VM:
+1. Prepare the application zip on the lab VM:
    ```bash
    mkdir -p ~/lab12/lab-app && cd ~/lab12/lab-app
    ```
-   Drop the **Lab 5 messageboard** Python code here (flat layout — no nested folder at the zip root). Ensure:
-   - `main.py` (or the Flask entrypoint)
-   - `requirements.txt`
-   - `templates/` folder with HTML
-   - `images/` folder (empty, for temporary uploads)
+   Copy the **Lab 5 messageboard** Python project into this folder. Options:
+   - Option A (recommended) — `scp` the folder from your Windows machine:
+     ```powershell
+     scp -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" -r C:\path\to\practice-5-messageboard\* ubuntu@<LAB12_VM_IP>:~/lab12/lab-app/
+     ```
+   - Option B — `git clone` your own Practice 5 repo inside `~/lab12/lab-app`, then `mv` its contents up one level so the layout is flat.
 
-   Zip with flat structure:
+   Required flat layout at the zip root (no wrapping folder):
+   - `main.py` (or the Flask entrypoint referenced in the course template).
+   - `requirements.txt` — must include at least `flask`, `azure-cosmos`, `azure-storage-blob`.
+   - `templates/` folder with the HTML.
+   - `images/` folder (empty, used for temporary uploads).
+
+   Zip with flat structure and sanity-check the size:
    ```bash
-   cd ~/lab12/lab-app && zip -r ../lab-app/python-lab-app.zip . && ls -la ~/lab12/lab-app/python-lab-app.zip
+   cd ~/lab12/lab-app && zip -r ../lab-app/python-lab-app.zip . && ls -la ~/lab12/lab-app/python-lab-app.zip && unzip -l ~/lab12/lab-app/python-lab-app.zip | head
    ```
+   The `unzip -l` preview must show `main.py` and `requirements.txt` at the **top level** — not inside a sub-folder. If they are nested, re-zip from inside the folder that contains them.
 2. Append to `main.tf`:
    ```terraform
    resource "azurerm_service_plan" "lab-app-serviceplan" {

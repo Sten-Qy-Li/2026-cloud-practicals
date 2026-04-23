@@ -14,9 +14,28 @@ Note to self:
 
 ---
 
+## 1776954837
+
+- [] Checked by user
+
+### `practice-10\README.md`
+
+> 3. Inside `lab10`, create:
+>    - an **App Service (Linux, Python 3.9)** — Free F1 tier.
+>    - a **Storage Account** → add a **Blob container** named `images`.
+>    - a **Cosmos DB account** (Core/SQL) → add database `lab5messagesdb` → container `lab5messages` (partition key `/id`, throughput 400).
+
+1. Request coding agent to provide additional details in `practice-10\README.md` (as well as other `practice-x\README.md` Markdown documents), to minimize ambiguities in implementation by user. (See below attached image)
+
+![alt text](image.png)
+
+2. Request coding agent to commit and push the local repository to remote. (Every file in the repository should be committed and pushed, exclude files only in coding agent’s best judgement.)
+
+---
+
 ## 1776837718
 
-- [ ] Checked by user
+- [x] Checked by user
 
 ### `practice-x\README.md`
 
@@ -25,7 +44,6 @@ Note to self:
 2. Substitute all instances of Azure region: `North Europe` with Azure region: `Sweden Central`, because `North Europe` Azure region doesn’t work for my Azure account, but `Sweden Central` does.
 
 3. Request coding agent to commit and push the local repository to remote. (Every file in the repository should be committed and pushed, exclude files only in coding agent’s best judgement.)
-
 
 ---
 

@@ -14,11 +14,25 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 ### Step-by-step
 
-1. In the Azure Portal search for **IoT Hub** → Create.
-2. Resource group: `lab13`. Region: `Sweden Central`. Tier: **Free F1**.
-3. Name: `iothub-li-<random>` (must include your surname and be globally unique).
-4. After creation, in the IoT Hub blade → **Devices → Add device** → ID `device-li-01`. Auth type: **Symmetric key**. Auto-generate keys. Save.
-5. Open the device → copy the **Primary key** (this becomes `ACCESS_KEY`).
+1. Open [https://portal.azure.com](https://portal.azure.com) and sign in with `qun.yan.li@ut.ee`. Confirm directory **Tartu Ülikool** and the UT student subscription is selected.
+
+2. Create the resource group `lab13` first (re-usable for every resource below):
+   - Portal top search → `Resource groups` → **+ Create** → Resource group: `lab13` · Region: `(Europe) Sweden Central` → **Review + create → Create**.
+
+3. Create the IoT Hub:
+   - Portal top search → `IoT Hub` → **+ Create**.
+   - **Basics tab:** Subscription: UT student · Resource group: `lab13` · IoT hub name: `iothub-li-<random>` (globally unique; must contain `li`) · Region: `Sweden Central`.
+   - **Management tab:** Tier: **Free** · Daily message limit: `8000`.
+   - **Networking / Add-ons / Tags:** leave defaults.
+   - **Review + create → Create**. Deployment takes ~2–5 minutes.
+
+4. Register the device:
+   - Open the new IoT Hub → left blade **Device management → Devices → + Add device**.
+   - Device ID: `device-li-01` · Authentication type: **Symmetric key** · Auto-generate keys: **ticked** · Connect this device to an IoT hub: **Enable** · **Save**.
+
+5. Copy the primary key:
+   - After save, click the `device-li-01` row in the Devices list.
+   - Copy **Primary key** (click the copy icon next to the masked value). This is your `ACCESS_KEY` for Exercise 13.2 — store it somewhere you can retrieve later (e.g. a local text file that is **not** committed to the repo).
 
 ### Exercise Deliverables
 
@@ -99,10 +113,10 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 ### Step-by-step
 
-1. From the IoT Hub → **Hub settings → Built-in endpoints**, copy:
-   - **Event Hub-compatible name** → `eventhub_name`
-   - A consumer group from the list (`$Default` is fine) → `consumer_group`
-   - The **Event Hub-compatible endpoint**, then switch the shared-access policy from `iothubowner` to **service** and copy that connection string → `CONNECTION_STRING`
+1. In the IoT Hub blade → left blade **Hub settings → Built-in endpoints**:
+   - **Event Hub-compatible name** field (top) → copy into `eventhub_name` (a short alphanumeric string).
+   - **Consumer Groups** list → keep `$Default` or click **+ Add consumer group** to make a new one — value goes into `consumer_group`.
+   - **Shared access policy** dropdown (just above the connection string) → change from `iothubowner` to **service**. The **Event Hub-compatible endpoint** field updates; click the copy icon → paste into `CONNECTION_STRING`. This is an `Endpoint=sb://...;SharedAccessKeyName=service;SharedAccessKey=...;EntityPath=...` string.
 2. Install the SDK and set the env var:
    ```bash
    pip install azure-eventhub && export CONNECTION_STRING='<EVENT_HUB_COMPATIBLE_ENDPOINT_SERVICE>'
@@ -202,14 +216,21 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 ### Step-by-step
 
-1. In the `lab13` resource group, create a **Storage Account** if you don't have one (Standard LRS is fine). Add a **container** called `iot-data`.
-2. IoT Hub blade → **Hub settings → Message routing → Add** → name `telemetry-to-storage`.
-3. Endpoint type: **Storage** → add endpoint:
-   - Name: `blob-iot-data`
-   - Pick the storage account and `iot-data` container
-   - **Encoding: JSON**
-   - Authentication: **Key-based**
-4. Data source: **Device Telemetry Messages**. Routing query: `true`. Click **Create + skip enrichments**.
+1. Create the storage target (skip if already present from Practice 10):
+   - Portal top search → `Storage accounts` → **+ Create** → Resource group: `lab13` · Name: `lilab13iot<random>` (3–24 lowercase letters/digits) · Region: `Sweden Central` · Redundancy: **LRS** → **Review + create → Create**.
+   - Open the storage account → **Data storage → Containers → + Container** → Name: `iot-data` · Anonymous access level: **Private** → **Create**.
+
+2. Configure the IoT Hub route:
+   - IoT Hub blade → left blade **Hub settings → Message routing → + Add**.
+   - Name: `telemetry-to-storage`.
+   - Endpoint: click **+ Add endpoint → Storage**.
+     - Endpoint name: `blob-iot-data`.
+     - **Pick a container** → Subscription: UT student · Storage account: `lilab13iot<random>` · Container: `iot-data`.
+     - Encoding: **JSON** · Authentication type: **Key-based**.
+     - Leave batch frequency / chunk size / file name format at defaults.
+     - **Create**.
+   - Back on the Add route form: Data source: **Device Telemetry Messages** · Routing query: `true`.
+   - **Save + skip enrichments** (or **Save** on older UI).
 5. From the VM run the sender again for 60–90 seconds:
    ```bash
    python pyIoTDevice.py
@@ -231,14 +252,30 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 ### Step-by-step
 
-1. Create **Azure IoT Hub Device Provisioning Service** in `lab13` → same region.
-2. DPS blade → **Linked IoT Hubs → Add/Link** → select your IoT Hub.
-3. DPS blade → **Manage enrollments → Enrollment groups → Add**:
-   - Name: `li-group`
-   - Attestation: **Symmetric Key** (auto-generate)
-   - Linked hub: select it
-4. Open the enrollment → copy the **Primary key**. Derive per-device keys following the "Derive a device key" Microsoft tutorial.
-5. Copy the DPS **ID scope** from the DPS overview.
+1. Create the DPS resource:
+   - Portal top search → `Device Provisioning Services` → **+ Create**.
+   - Subscription: UT student · Resource group: `lab13` · Name: `dps-li-<random>` · Region: `Sweden Central` · Pricing tier: **S1 (free units available)**.
+   - **Review + create → Create**.
+
+2. Link the existing IoT Hub:
+   - Open the DPS resource → left blade **Settings → Linked IoT hubs → + Add**.
+   - Subscription: UT student · IoT hub: `iothub-li-<random>` · Access Policy: `iothubowner` → **Save**.
+
+3. Create the enrollment group:
+   - DPS blade → left blade **Settings → Manage enrollments → Enrollment groups tab → + Add enrollment group**.
+   - Group name: `li-group` · Attestation type: **Symmetric Key** · Auto-generate keys: **Enable**.
+   - IoT hubs: tick the linked hub. Leave Initial device twin state / allocation policy at defaults. **Save**.
+
+4. Copy the group primary key:
+   - Open `li-group` from the list → copy **Primary key**.
+   - To get a **per-device** symmetric key, run the helper (Microsoft's "Derive a device key" tutorial). Quick command on the lab VM:
+     ```bash
+     printf '%s' '<DEVICE_ID>' | openssl sha256 -mac HMAC -macopt hexkey:$(printf '%s' '<GROUP_PRIMARY_KEY>' | base64 -d | xxd -p -c 256) -binary | base64
+     ```
+     Run this once per `DEVICE_ID` (`li-device-01`, `li-device-02`, …). The output is the `REQUEST_KEY` for that device.
+
+5. Copy the DPS **ID scope**:
+   - DPS blade → **Overview** → copy the **ID Scope** value (format: `0ne…`).
 6. Install and set env vars:
    ```bash
    pip install azure-iot-device && export REQUEST_KEY='<DERIVED_DEVICE_KEY>' && export DEVICE_ID='li-device-01'

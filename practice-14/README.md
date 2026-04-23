@@ -14,19 +14,44 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice14
 
 ### Step-by-step
 
-1. On OpenStack, launch a new VM:
-   - Image: Ubuntu **24.04** · Flavor: `g4.r4c2` · Volume: **20 GB** with "Delete Volume on Instance Delete" enabled.
-   - Security group: create / reuse `lab14` opening 22, 5000 (Flask), 9000 (MinIO), 9001 (MinIO Console), 27017 (MongoDB, optional external access).
-2. Note the new public IP — call it `<LAB14_IP>` below.
-3. SSH in:
+1. Create / verify the security group `lab14` before launching the VM:
+   - OpenStack dashboard → **Project → Network → Security Groups** → **+ Create Security Group** → Name: `lab14` → **Create**.
+   - Open `lab14` → **Manage Rules → + Add Rule**. Add one rule per port (Rule: **Custom TCP Rule** · Remote: **CIDR** `0.0.0.0/0` unless noted):
+     - Port `22` (SSH; the SSH preset rule is equivalent).
+     - Port `5000` (Flask).
+     - Port `9000` (MinIO S3 API).
+     - Port `9001` (MinIO Console).
+     - Port `27017` (MongoDB; optional external access — remove if you do not need to `mongosh` from your Windows machine).
+
+2. Launch the VM:
+   - **Project → Compute → Instances → Launch Instance**.
+   - **Details:** Instance Name: `Lab14_Li` · Count: `1`.
+   - **Source:** Boot Source: **Image** · Create New Volume: **Yes** · Volume Size: `20 GB` · Delete Volume on Instance Delete: **Yes** · Image: **Ubuntu 24.04 LTS**.
+   - **Flavor:** `g4.r4c2`.
+   - **Networks:** `shared` (or default student network).
+   - **Security Groups:** deselect `default` · select `lab14`.
+   - **Key Pair:** your existing key (matching `C:\Users\qunyan\Desktop\Qun Yan Li.pem`).
+   - **Launch Instance**. Wait for **Active**.
+
+3. Copy the public IP from the **IP Address** column — call it `<LAB14_IP>` below.
+
+4. SSH in from Windows PowerShell:
    ```powershell
    ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<LAB14_IP>
    ```
-4. Fix Docker networking (per Practice 2) and install Docker in one chained command:
+5. Install Docker (single chained command per course style). This also adds the ubuntu user to the `docker` group so `docker ...` works without `sudo`:
    ```bash
    sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg && sudo install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg && sudo chmod a+r /etc/apt/keyrings/docker.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list && sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && sudo usermod -aG docker $USER && sudo docker run --rm hello-world
    ```
-5. Log out and back in so group changes take effect (`exit`, then the SSH command again).
+6. Log out and back in so the group change takes effect:
+   ```bash
+   exit
+   ```
+   Then re-SSH:
+   ```powershell
+   ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<LAB14_IP>
+   ```
+   Confirm rootless Docker: `docker run --rm hello-world` must succeed **without** `sudo`.
 
 ### Exercise Deliverables
 
@@ -47,7 +72,14 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice14
    ```bash
    docker run -d --name mongodb -v ${HOME}/mongo-data:/data/db -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=sample-db-user -e MONGO_INITDB_ROOT_PASSWORD=sample-password mongo:latest && docker ps | grep mongodb
    ```
-2. Pull the Lab 5 messageboard source into `~/lab14/app`, then edit the Python file:
+2. Copy the Lab 5 messageboard source into `~/lab14/app` (same two options as Practice 12):
+   - Option A (recommended) — `scp` from Windows:
+     ```powershell
+     scp -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" -r C:\path\to\practice-5-messageboard\* ubuntu@<LAB14_IP>:~/lab14/app/
+     ```
+   - Option B — `git clone` your own Practice 5 repo and flatten the directory so `main.py` / `requirements.txt` / `templates/` sit at `~/lab14/app` root.
+
+   Then edit the Python file (`main.py` or whichever file the Practice 5 template uses as the Flask entrypoint):
    - Remove every Cosmos DB import / client / helper.
    - Add PyMongo to `requirements.txt`: `pymongo`.
    - Replace the client init block:

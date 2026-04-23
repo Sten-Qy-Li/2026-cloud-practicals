@@ -10,21 +10,62 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice10
 
 ## Exercise 10.1 — Deploy the Message Board App to Azure
 
+> Portal naming note: the "App Service" resource is created from the **Web App** tile (Portal → Create a resource → Web App, or App Services blade → **+ Create → Web App**). "Cosmos DB (Core/SQL)" is now labelled **Azure Cosmos DB for NoSQL** in the Portal.
+
 ### Step-by-step
 
-1. Sign in to the Azure Portal with your UT student subscription.
-2. Create a new Resource Group named `lab10` (region: `Sweden Central`).
-3. Inside `lab10`, create:
-   - an **App Service (Linux, Python 3.9)** — Free F1 tier.
-   - a **Storage Account** → add a **Blob container** named `images`.
-   - a **Cosmos DB account** (Core/SQL) → add database `lab5messagesdb` → container `lab5messages` (partition key `/id`, throughput 400).
-4. Copy the following values and note them down:
-   - `STORAGE_ACCOUNT` — storage account name
-   - `CONN_KEY` — storage primary access key
-   - `COSMOS_URL` — Cosmos DB endpoint URI
-   - `MasterKey` — Cosmos DB primary key
-5. In the Web App → **Configuration → Application settings**, add all four as environment variables. Prefix each name with `APPSETTING_` if using the Deployment Center / zip-deploy route.
-6. Deploy the Practice 5 Message Board code (zip deploy or GitHub Actions). Verify the homepage renders at `https://<app-name>.azurewebsites.net`.
+1. Open [https://portal.azure.com](https://portal.azure.com) and sign in with the UT student account `qun.yan.li@ut.ee`. Top-right avatar → confirm the directory is **Tartu Ülikool (TartuUlikool.onmicrosoft.com)** and the subscription is the UT student subscription.
+
+2. Create the resource group:
+   - Top search bar → type `Resource groups` → **Resource groups** → **+ Create**.
+   - Subscription: UT student subscription · Resource group: `lab10` · Region: `(Europe) Sweden Central`.
+   - **Review + create → Create**. Wait for "Your deployment is complete".
+
+3. Create the **Web App** (this is the "App Service" resource):
+   - Top search bar → `App Services` → **+ Create → Web App**.
+   - **Basics tab:**
+     - Subscription: UT student subscription · Resource Group: `lab10`.
+     - Name: `lilab10-<random>` (must be globally unique; the full URL will be `https://lilab10-<random>.azurewebsites.net`).
+     - Publish: **Code** · Runtime stack: **Python 3.9** · Operating System: **Linux** · Region: `Sweden Central`.
+     - Linux Plan: **Create new** → name it `lilab10-plan` · Pricing plan: **Free F1 (Shared infrastructure)**.
+   - Leave Database / Deployment / Networking / Monitoring / Tags at defaults. **Review + create → Create**.
+
+4. Create the **Storage Account**:
+   - Top search bar → `Storage accounts` → **+ Create**.
+   - Subscription: UT student · Resource group: `lab10` · Storage account name: `lilab10storage<random>` (3–24 lowercase letters/digits, globally unique) · Region: `Sweden Central` · Primary service: **Azure Blob Storage or Azure Data Lake Storage Gen 2** · Performance: **Standard** · Redundancy: **Locally-redundant storage (LRS)**.
+   - **Review + create → Create**.
+   - Once deployed → open the storage account → left blade **Data storage → Containers → + Container** → Name: `images` → Anonymous access level: **Private (no anonymous access)** → **Create**.
+
+5. Create the **Cosmos DB account** (Core/SQL API):
+   - Top search bar → `Azure Cosmos DB` → **+ Create** → pick the **Azure Cosmos DB for NoSQL** tile → **Create**.
+   - Subscription: UT student · Resource group: `lab10` · Account name: `lilab10-cosmos-<random>` · Location: `Sweden Central` · Capacity mode: **Provisioned throughput** · Apply Free Tier Discount: **Apply** (if offered).
+   - **Review + create → Create**. Deployment takes 5–10 minutes.
+   - Once deployed → open the account → left blade **Data Explorer → New Container**:
+     - Database id: **Create new** → `lab5messagesdb` · Share throughput across containers: **unchecked**.
+     - Container id: `lab5messages` · Partition key: `/id` · Container throughput (autoscale/manual): **Manual** · RU/s: `400`.
+     - **OK**.
+
+6. Collect the four values (write them into a scratch note — they go into Web App configuration in step 7):
+   - `STORAGE_ACCOUNT` — Storage account blade → **Overview** → name at the top (e.g. `lilab10storage<random>`).
+   - `CONN_KEY` — Storage account blade → **Security + networking → Access keys → key1 → Show → copy the Key** (the long base64 value, not the connection string).
+   - `COSMOS_URL` — Cosmos DB account blade → **Overview → URI** (form: `https://lilab10-cosmos-<random>.documents.azure.com:443/`).
+   - `MasterKey` — Cosmos DB account blade → **Settings → Keys → Read-write Keys → PRIMARY KEY → copy**.
+
+7. Add the four env vars to the Web App:
+   - Web App blade (`lilab10-<random>`) → left blade **Settings → Environment variables → App settings tab → + Add**.
+   - Add each name / value pair (plain names, **no** `APPSETTING_` prefix needed when setting them here — the `APPSETTING_` prefix only matters when baking them into the deployment payload):
+     - `STORAGE_ACCOUNT` = `<value from step 6>`
+     - `CONN_KEY` = `<value from step 6>`
+     - `COSMOS_URL` = `<value from step 6>`
+     - `MasterKey` = `<value from step 6>`
+   - Click **Apply → Confirm** (the app will restart).
+
+8. Deploy the Practice 5 Message Board code:
+   - On your local machine, zip the Practice 5 project at the project root (flat layout — `main.py`, `requirements.txt`, `templates/`, `images/` must be at the **root** of the zip, not inside a top folder).
+   - Web App blade → left blade **Development Tools → Advanced Tools → Go** → this opens the Kudu site in a new tab.
+   - In Kudu → top menu **Tools → Zip Push Deploy** → drag the zip onto the page. Wait for the `Deployment successful` response.
+   - Alternative (CLI): `az webapp deploy --resource-group lab10 --name lilab10-<random> --src-path ./messageboard.zip --type zip`.
+   - Open `https://lilab10-<random>.azurewebsites.net` in the browser — the Message Board homepage must render.
 
 ### Exercise Deliverables
 
@@ -44,9 +85,27 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice10
 
 ### Step-by-step
 
-1. On the Web App blade → **Application Insights → Turn on Application Insights → Apply**. Create a new Log Analytics workspace in `lab10` (or reuse one).
-2. On the Web App → **Monitoring → Diagnostic settings → Add diagnostic setting**. Enable **all** log categories + AllMetrics → destination: **Send to Log Analytics workspace** (the one just created).
-3. Repeat step 2 on the Storage Account (pick the **blob** sub-resource) and on the Cosmos DB account. Enable every category and AllMetrics.
+1. Turn on Application Insights for the Web App:
+   - Web App blade → left blade **Settings → Application Insights → Turn on Application Insights**.
+   - Change your resource name: accept the default (e.g. `lilab10-<random>`).
+   - Log Analytics workspace: **Create new** → name `lilab10-logs` · Resource group: `lab10`.
+   - **Apply → Yes** (confirm restart). Wait for the "Change applied" banner.
+
+2. Route Web App logs to the Log Analytics workspace:
+   - Web App blade → left blade **Monitoring → Diagnostic settings → + Add diagnostic setting**.
+   - Diagnostic setting name: `lilab10-webapp-to-logs`.
+   - **Logs** section: tick **allLogs** (or tick every individual category).
+   - **Metrics** section: tick **AllMetrics**.
+   - **Destination details** → tick **Send to Log Analytics workspace** → Subscription: UT student · Workspace: `lilab10-logs`.
+   - **Save**.
+
+3. Repeat for the Storage Account — diagnostic settings live under the **blob** sub-resource, not the account root:
+   - Storage account blade → left blade **Monitoring → Diagnostic settings** → you will see a list with four rows (blob, file, queue, table). Click **+ Add diagnostic setting** on the **blob** row.
+   - Name: `lilab10-blob-to-logs` · tick **allLogs** + **AllMetrics** · destination: Log Analytics workspace `lilab10-logs` → **Save**.
+
+4. Repeat for the Cosmos DB account:
+   - Cosmos DB account blade → left blade **Monitoring → Diagnostic settings → + Add diagnostic setting**.
+   - Name: `lilab10-cosmos-to-logs` · tick **allLogs** + **AllMetrics** · destination: Log Analytics workspace `lilab10-logs` → **Save**.
 
 ### Exercise Deliverables
 
@@ -64,11 +123,11 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice10
 
 ### Step-by-step
 
-1. Open the Message Board in the browser. Post **~10 messages** with images (use small JPG/PNGs).
-2. Refresh the homepage 10–15 times to generate GET traffic.
-3. In the Azure Portal → Blob container `images`, confirm the uploaded files appear.
-4. In Cosmos DB → **Data Explorer**, open `lab5messagesdb/lab5messages` and confirm the documents are present.
-5. On the Web App → **Application Insights → Application Map**. Take a full-window screenshot that clearly shows your university username (`qun.yan.li@ut.ee`) in the top-right corner.
+1. Open `https://lilab10-<random>.azurewebsites.net` in the browser. Post **~10 messages** with images (small JPG/PNGs, < 200 KB each).
+2. Refresh the homepage 10–15 times (hold F5 / Ctrl+R) to generate GET traffic on the `/` route and `/handle_message` POSTs.
+3. Verify uploads arrived: Portal → Storage account → **Data storage → Containers → images** — the uploaded files must be listed.
+4. Verify writes arrived: Portal → Cosmos DB account → **Data Explorer** → expand `lab5messagesdb → lab5messages → Items` — the documents must be listed.
+5. On the Web App blade → left blade **Settings → Application Insights → View Application Insights data** (this opens the AI resource) → left blade **Investigate → Application map**. Wait until at least one node appears (5–30 min ingestion lag is normal). Take a full-browser-window screenshot with the top-right user chip showing `qun.yan.li@ut.ee` (or the UT avatar) clearly visible. Save as `10_3.png`.
 
 ### Exercise Deliverables
 
@@ -88,7 +147,13 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice10
 
 ### 10.4.1 — App Service (`AppServiceHTTPLogs`)
 
-Run each query in **Log Analytics workspace → Logs**. Queries are single-line-friendly; pipes can stay on separate lines for readability in the query pane — that is the Azure UI, not a shell.
+Portal navigation for every query below:
+1. Portal top search → `Log Analytics workspaces` → click `lilab10-logs`.
+2. Left blade **General → Logs** → close the Queries dialog if it pops up.
+3. Paste the KQL block into the query editor → **Run**.
+4. Screenshot the **full browser window** (URL bar + query + results) with the UT user avatar visible in the top-right. Save under the filename listed next to the query.
+
+Queries are single-line-friendly; pipes can stay on separate lines for readability in the query pane — that is the Azure UI, not a shell.
 
 **Q1.1.3** — root endpoint invocations in the last 24 hours:
 ```kql
@@ -216,8 +281,9 @@ Save as `Q4_4.png`.
 
 ## Tear-down (do last)
 
-1. Azure Portal → Resource groups → `lab10` → **Delete resource group**. Confirm with the name.
-2. Verify the resource group disappears from the list.
+1. Portal top search → `Resource groups` → click `lab10` → top command bar **Delete resource group**.
+2. In the confirmation blade, type `lab10` into the text field → tick **Apply force delete for selected Virtual machines and Virtual machine scale sets** (if present) → **Delete**.
+3. Wait for the green "Deleted resource group" notification, then refresh the Resource groups list — `lab10` must be gone.
 
 ### Final Practical Checklist
 
