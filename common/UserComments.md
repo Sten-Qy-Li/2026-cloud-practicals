@@ -6,17 +6,21 @@ Sub-headings denote the approximate Unix timestamps the comments were authored.
 
 The user comments are in descending order, so more recent comments are nearer to the top.
 
-Note to self:
+Notes to self:
 
 ``` powershell
 [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+```
+
+``` markdown
+Hi Claude, please address `common\UserComments.md` > “xxx”. Thanks!
 ```
 
 ---
 
 ## 1776956046
 
-- [ ] Checked by user
+- [x] Checked by user
 
 ### `practice-x\README.md` files
 

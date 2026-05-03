@@ -19,11 +19,11 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 1. Open [https://portal.azure.com](https://portal.azure.com) and sign in with `qun.yan.li@ut.ee`. Confirm directory **Tartu Ülikool** and the UT student subscription is selected.
 
 2. Create the resource group `lab13` first (re-usable for every resource below):
-   - Portal top search → `Resource groups` → **+ Create** → Resource group: `lab13` · Region: `(Europe) Sweden Central` → **Review + create → Create**.
+   - Portal top search → `Resource groups` → **+ Create** → Resource group: `lab13` · Region: `(Europe) Poland Central` → **Review + create → Create**.
 
 3. Create the IoT Hub:
    - Portal top search → `IoT Hub` → **+ Create**.
-   - **Basics tab:** Subscription: UT student · Resource group: `lab13` · IoT hub name: `iothub-li-m2q8` (globally unique; must contain `li`) · Region: `Sweden Central`.
+   - **Basics tab:** Subscription: UT student · Resource group: `lab13` · IoT hub name: `iothub-li-m2q8` (globally unique; must contain `li`) · Region: `Poland Central`.
    - **Management tab:** Tier: **Free** · Daily message limit: `8000`.
    - **Networking / Add-ons / Tags:** leave defaults.
    - **Review + create → Create**. Deployment takes ~2–5 minutes.
@@ -219,7 +219,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 ### Step-by-step
 
 1. Create the storage target (skip if already present from Practice 10):
-   - Portal top search → `Storage accounts` → **+ Create** → Resource group: `lab13` · Name: `lilab13iotm2q8` (3–24 lowercase letters/digits) · Region: `Sweden Central` · Redundancy: **LRS** → **Review + create → Create**.
+   - Portal top search → `Storage accounts` → **+ Create** → Resource group: `lab13` · Name: `lilab13iotm2q8` (3–24 lowercase letters/digits) · Region: `Poland Central` · Redundancy: **LRS** → **Review + create → Create**.
    - Open the storage account → **Data storage → Containers → + Container** → Name: `iot-data` · Anonymous access level: **Private** → **Create**.
 
 2. Configure the IoT Hub route:
@@ -256,7 +256,7 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice13
 
 1. Create the DPS resource:
    - Portal top search → `Device Provisioning Services` → **+ Create**.
-   - Subscription: UT student · Resource group: `lab13` · Name: `dps-li-m2q8` · Region: `Sweden Central` · Pricing tier: **S1 (free units available)**.
+   - Subscription: UT student · Resource group: `lab13` · Name: `dps-li-m2q8` · Region: `Poland Central` · Pricing tier: **S1 (free units available)**.
    - **Review + create → Create**.
 
 2. Link the existing IoT Hub:

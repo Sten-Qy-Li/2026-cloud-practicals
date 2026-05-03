@@ -4,9 +4,13 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice11
 
 > Theme: Two-node K3s (Kubernetes) cluster on OpenStack — pods, replicasets, deployments, services, secrets, persistent volumes.
 
-> Note: the existing VM at `172.17.65.54` is **not** used here — this practical requires **two fresh VMs**. SSH into each using the same key: `ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<VM_IP>`.
+> VM topology (per course spec): the **Master** is your **existing Lab 1 instance** at `172.17.65.54`. The **Worker** is a **new VM** named `Lab11_Li_Worker`. Do **not** create a second Master — the practical reuses your Lab 1 VM as the K3s server.
 
-> Reminder: If you need Docker Hub pulls and hit rate limits, swap the image prefix to `registry.hpc.ut.ee/mirror/<image>`.
+> SSH into either VM with the same key: `ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<VM_IP>`.
+
+> Reminder: If you need Docker Hub pulls and hit rate limits, swap the image prefix to `registry.hpc.ut.ee/mirror/<image>` (HPC mirror docs: https://docs.hpc.ut.ee/public/services/registry.hpc.ut.ee/). Avoid `docker login` — that lowers your daily quota.
+
+> Nagios checks tracked across this practical: **Lab11-00, Lab11-01** (cluster up), **Lab11-02** (namespace), **Lab11-03** (pod), **Lab11-04** (replicaset), **Lab11-05** (first deployment), **Lab11-06** (secret), **Lab11-07, Lab11-08, Lab11-09** (services + scaling). All ten must turn green before submission.
 
 ---
 
@@ -14,64 +18,72 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice11
 
 ### Step-by-step
 
-1. Prepare the OpenStack security group first (so the VMs have it applied at launch):
-   - OpenStack dashboard → **Project → Network → Security Groups** → check if `lab11-k3s` already exists; otherwise **+ Create Security Group** → Name: `lab11-k3s` → **Create**.
-   - Open `lab11-k3s` → **Manage Rules → + Add Rule** and add the three rules:
+1. Prepare the OpenStack security group **before** modifying any VM:
+   - OpenStack dashboard → **Project → Network → Security Groups** → check if `K8S cluster` already exists; otherwise **+ Create Security Group** → Name: `K8S cluster` → **Create**.
+   - Open `K8S cluster` → **Manage Rules → + Add Rule** and add the three rules:
      - Rule: **SSH** (or Custom TCP Rule, port 22) · Remote: **CIDR** `0.0.0.0/0` → **Add**.
      - Rule: **Custom TCP Rule** · Port Range: `6443` · Remote: CIDR `0.0.0.0/0` → **Add** (K3s API server).
      - Rule: **Custom TCP Rule** · Port Range: `30000 – 32767` · Remote: CIDR `0.0.0.0/0` → **Add** (NodePort services).
 
-2. Launch two VMs. Do **each** twice (once named `Lab11_Li_Master`, once `Lab11_Li_Worker`):
+2. Attach the `K8S cluster` security group to your **existing Lab 1 instance** (the Master):
+   - **Project → Compute → Instances** → find your Lab 1 VM (the one at `172.17.65.54`) → **Actions ▾ → Edit Security Groups**.
+   - Move `K8S cluster` from the left list to the right list (the **+** button) → keep the existing groups too → **Save**.
+
+3. Launch **one** new VM for the Worker:
    - **Project → Compute → Instances → Launch Instance**.
-   - **Details tab:** Instance Name: `Lab11_Li_Master` (or `Lab11_Li_Worker`) · Count: `1`.
-   - **Source tab:** Select Boot Source: **Image** · Create New Volume: **Yes** · Volume Size: `15 GB` · Delete Volume on Instance Delete: **Yes** · Image: **Ubuntu 22.04 LTS** (click the up-arrow next to it).
+   - **Details tab:** Instance Name: `Lab11_Li_Worker` · Count: `1`.
+   - **Source tab:** Select Boot Source: **Image** · Create New Volume: **Yes** · Volume Size: `30 GB` · Delete Volume on Instance Delete: **Yes** · Image: **Ubuntu 24.04 LTS** (click the up-arrow next to it).
    - **Flavor tab:** select `g4.r4c2` (up-arrow).
    - **Networks tab:** `shared` or the default student network (up-arrow).
-   - **Security Groups tab:** deselect `default` · select `lab11-k3s` (up-arrow).
+   - **Security Groups tab:** deselect `default` · select `K8S cluster` (up-arrow).
    - **Key Pair tab:** select your existing key (the one matching `C:\Users\qunyan\Desktop\Qun Yan Li.pem`).
-   - **Launch Instance**. Repeat for the second VM.
+   - **Launch Instance**.
 
-3. Once both show **Status: Active** and **Power State: Running**, copy both public IPs from the **IP Address** column (use the Floating IP if one is assigned; raw VMs on the `shared` net already have a routable IP).
+4. Wait until the Worker shows **Status: Active** and **Power State: Running**, then copy its IP from the **IP Address** column. The Master IP stays `172.17.65.54`.
 
-4. SSH into **Master** from Windows PowerShell:
+5. SSH into the **Master** (Lab 1 VM) from Windows PowerShell:
    ```powershell
-   ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<MASTER_IP>
+   ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@172.17.65.54
    ```
-5. On Master, install K3s server and read the node token in one chained command:
-   ```bash
-   curl -sfL https://get.k3s.io | sh - && sudo cat /var/lib/rancher/k3s/server/node-token
-   ```
-   Copy the full token (starts with a long hex string, a `::`, then `server:` and more hex) — you need it in step 7.
 
-6. Open a **second** Windows PowerShell window and SSH into **Worker**:
+6. On Master, install the K3s server, relax the kubeconfig permissions, and read the node token in one chained command:
+   ```bash
+   curl -sfL https://get.k3s.io | sh - && sudo chmod 644 /etc/rancher/k3s/k3s.yaml && sudo cat /var/lib/rancher/k3s/server/node-token
+   ```
+   Copy the full token (long hex · `::` · `server:` · more hex) — you need it in step 8.
+
+7. Open a **second** PowerShell window and SSH into the **Worker**:
    ```powershell
    ssh -i "C:\Users\qunyan\Desktop\Qun Yan Li.pem" ubuntu@<WORKER_IP>
    ```
 
-7. On Worker, join the cluster (single line, substitute `<MASTER_IP>` and paste `<NODE_TOKEN>` from step 5):
+8. On Worker, join the cluster (single line, substitute `172.17.65.54` for `<MASTER_IP>` and paste `<NODE_TOKEN>` from step 6):
    ```bash
-   curl -sfL https://get.k3s.io | K3S_URL=https://<MASTER_IP>:6443 K3S_TOKEN=<NODE_TOKEN> sh -
+   curl -sfL https://get.k3s.io | K3S_URL=https://172.17.65.54:6443 K3S_TOKEN=<NODE_TOKEN> sh -
    ```
 
-8. Back on **Master** (the first SSH window), verify both nodes are `Ready`:
+9. Back on the **Master** SSH window, verify both nodes are `Ready`:
    ```bash
-   sudo kubectl get nodes -o wide
+   sudo kubectl get nodes && sudo kubectl get nodes -o wide
    ```
 
-9. (Optional but recommended — avoid `sudo` on every `kubectl` call.) On Master:
-   ```bash
-   echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc && sudo chmod 644 /etc/rancher/k3s/k3s.yaml && source ~/.bashrc
-   ```
+10. (Recommended — avoid `sudo` on every `kubectl` call.) On Master:
+    ```bash
+    echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc && source ~/.bashrc
+    ```
 
 ### Exercise Deliverables
 
-- Screenshot of `kubectl get nodes -o wide` output showing two `Ready` nodes — save as `11_1_nodes.png`.
+- Screenshot of `kubectl get nodes -o wide` showing both nodes `Ready` — save as `11_1_nodes.png`.
+- Nagios checks **Lab11-00** and **Lab11-01** are green.
 
 ### Checklist (fill in before proceeding)
 
-- [ ] Both VMs up and reachable over SSH.
-- [ ] Master shows Worker as `Ready`.
-- [ ] Screenshot archived.
+- [ ] `K8S cluster` security group created with SSH (22), 6443, and 30000–32767 rules.
+- [ ] Lab 1 instance has `K8S cluster` attached.
+- [ ] `Lab11_Li_Worker` VM is `Active` with the same security group.
+- [ ] Master shows Worker as `Ready` in `kubectl get nodes`.
+- [ ] Lab11-00, Lab11-01 green.
 
 ---
 
@@ -79,40 +91,50 @@ Practical webpage: https://courses.cs.ut.ee/2026/cloud/spring/Main/Practice11
 
 ### 11.2.1 — Namespaces
 
-On **Master**, run the list/create pair:
+On **Master**, list existing namespaces, create your own (the pseudonym `turbot` has no special characters so it is a valid namespace name — the Nagios checks look for resources inside this namespace, so it must match your registered course pseudonym exactly), then list again:
 ```bash
-kubectl get namespaces && kubectl create namespace li && kubectl get namespaces
+kubectl get namespaces && kubectl create namespace turbot && kubectl get namespaces
 ```
 
 ### 11.2.2 — Pod via CLI and YAML
 
-Imperative busybox pod:
+Imperative busybox pod (default namespace), then read its log:
 ```bash
-kubectl run busybox --image=busybox --restart=Never -n li -- /bin/sh -c "echo Hello Kubernetes!" && kubectl logs busybox -n li
+kubectl run busybox --image=busybox --restart=Never -- /bin/sh -c "echo Hello Kubernetes!" && kubectl get po && kubectl logs busybox
 ```
 
-Create `first_pod.yml` on Master:
+Create `first_pod.yml` on Master (container name and command match the course spec exactly):
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: first
-  namespace: li
+  namespace: turbot
   labels:
-    app: first
+    app: myfirst
 spec:
   containers:
-  - name: busybox
+  - name: myapp-container
     image: busybox
-    command: ["/bin/sh", "-c", "while true; do echo hello from first; sleep 5; done"]
+    command: ['sh', '-c', 'echo Hello Kubernetes! && sleep 180']
 ```
-Deploy, inspect, exec — chained:
+Deploy, list (with `-o wide` to see node placement), inspect logs, describe, and exec — chained:
 ```bash
-kubectl create -f first_pod.yml && kubectl get pods -n li && kubectl logs first -n li
+kubectl create -f first_pod.yml && kubectl get pods -n turbot -o wide && kubectl logs first -n turbot && kubectl describe pod first -n turbot
 ```
-Shell into it when you want:
+Shell into it and run the course-mandated `cat /etc/resolv.conf` to inspect how pods resolve names against the cluster DNS, the VM, and the university network (exit with `exit`):
 ```bash
-kubectl exec -it first -n li -- /bin/sh
+kubectl exec -it first -n turbot -- /bin/sh
+# inside the pod:
+cat /etc/resolv.conf
+exit
+```
+
+> The pod's command sleeps for 180 seconds and then exits — Kubernetes will restart it, and `kubectl exec` may "kick" you out mid-session. That is expected; just re-exec.
+
+After Nagios **Lab11-03** is green, the course wants you to clean the pod up:
+```bash
+kubectl delete -f first_pod.yml
 ```
 
 ### 11.2.3 — ReplicaSet
@@ -123,58 +145,74 @@ apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: web
-  namespace: li
+  namespace: turbot
+  labels:
+    env: dev
+    role: web
 spec:
   replicas: 4
   selector:
     matchLabels:
-      app: web
+      role: web
   template:
     metadata:
       labels:
-        app: web
+        role: web
     spec:
       containers:
       - name: nginx
         image: nginx
 ```
-Apply + scale experiments:
+Apply and inspect — note the course uses `-n your_pseudonym` on the apply, which is equivalent to baking `namespace: turbot` into the YAML as we did:
 ```bash
-kubectl apply -f replicaset.yml && kubectl get rs -n li && kubectl get pods -n li
-kubectl scale --replicas=10 rs/web -n li && kubectl get pods -n li
-kubectl scale --replicas=1 rs/web -n li && kubectl get pods -n li
+kubectl apply -f replicaset.yml && kubectl get rs -n turbot && kubectl get pods -n turbot
 ```
-Capture the describe output for the deliverable:
+
+**Course order — do the *isolation* edit first, then scale.** Pick any running pod from `kubectl get pods -n turbot` (e.g. `web-abcde`) and change its `role` label from `web` to `isolated`:
 ```bash
-kubectl describe pod first -n li | less
+kubectl edit pod <web-pod-name> -n turbot
+```
+In the editor, find `role: web` under `metadata.labels` and replace it with `role: isolated`, then save and quit (`:wq` in `vi` — see https://www.atmos.albany.edu/daes/atmclasses/atm350/vi_cheat_sheet.pdf if you are stuck). The ReplicaSet immediately spawns a replacement pod (it now matches one fewer pod against its selector). Confirm:
+```bash
+kubectl get pods -n turbot -L role
+```
+The pod with `role=isolated` is now an orphan — still running, but no longer managed by `rs/web`.
+
+Now run the scale experiments:
+```bash
+kubectl scale --replicas=10 rs/web -n turbot && kubectl get rs -n turbot && kubectl get pods -n turbot
+kubectl scale --replicas=1  rs/web -n turbot && kubectl get rs -n turbot && kubectl get pods -n turbot
 ```
 
 ### Exercise Deliverables
 
 - `first_pod.yml`, `replicaset.yml` committed to the repo.
-- Screenshot of `kubectl describe pod first -n li` — save as `11_2_describe.png`.
-- Screenshot of `kubectl get namespaces` — save as `11_2_namespaces.png`.
+- Screenshot of `kubectl get namespaces` showing `li` — save as `11_2_namespaces.png`.
+- Screenshot of `kubectl describe pod first -n turbot` — save as `11_2_describe.png`.
+- Nagios checks **Lab11-02**, **Lab11-03**, **Lab11-04** are green.
 
 ### Checklist (fill in before proceeding)
 
 - [ ] Namespace `li` exists.
-- [ ] Pod `first` runs and logs show the loop output.
-- [ ] ReplicaSet scaled up to 10 then back to 1 successfully.
+- [ ] Pod `first` runs and logs show the hello message.
+- [ ] ReplicaSet scaled from 4 → 10 → 1 successfully.
+- [ ] One pod re-labelled to `role: isolated`; ReplicaSet replaced it.
 - [ ] Both YAML files saved.
+- [ ] Lab11-02, Lab11-03, Lab11-04 green.
 
 ---
 
 ## Exercise 11.3 — Deployments, Multi-Service, Secrets
 
-### 11.3.1 — Flask Deployment
+### 11.3.1 — First Flask Deployment + Rolling Update
 
-Create `first_deployment.yml` (swap `<DOCKERHUB_ID>` for your own, e.g. `qunyanli/lab3flask1.0`):
+Create `first_deployment.yml` (swap `<DOCKERHUB_ID>` for your own, e.g. `qunyanli`). The course uses the **data.json**-based Practice 3 image `lab3flask1.0` for this sub-task — the Postgres-backed image comes in 11.3.2:
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flask-deployment
-  namespace: li
+  namespace: turbot
 spec:
   replicas: 1
   selector:
@@ -191,22 +229,33 @@ spec:
         ports:
         - containerPort: 5000
 ```
-Apply, rolling-update, clean up:
+Apply, list, describe, and grab the cluster-internal pod IP (`10.42.x.x`) from `kubectl get po -o wide`:
 ```bash
-kubectl apply -f first_deployment.yml && kubectl get deployments -n li
-kubectl set image deployments/flask-deployment flask=shivupoojar/message-board.v2 -n li && kubectl rollout status deployment/flask-deployment -n li
+kubectl apply -f first_deployment.yml && kubectl get deployments -n turbot && kubectl describe deploy flask-deployment -n turbot && kubectl get po -n turbot -o wide
+```
+From the **Master** node, curl the pod IP directly (k3s pod CIDR is reachable from the host) — this is the course's check that the Flask app is alive inside the pod:
+```bash
+curl "http://<POD_IP>:5000?msg=hi"
+```
+You should get an HTML response. (If you prefer not to leave the cluster, you can also `kubectl exec` into another pod and `wget -qO-` the same URL.)
+
+Trigger a rolling update with a different image, watch it complete, confirm via `describe`, then — once Nagios **Lab11-05** turns green — delete the deployment as the course requires:
+```bash
+kubectl set image deployments/flask-deployment flask=shivupoojar/message-board.v2 -n turbot && kubectl rollout status deployment/flask-deployment -n turbot && kubectl describe pods -n turbot
 kubectl delete -f first_deployment.yml
 ```
 
-### 11.3.2 + 11.3.3 + 11.3.4 — Combined Message-Board File
+### 11.3.2 — Drafting `message-board.yml` (Flask + Postgres)
 
-Create `message-board.yml` (two deployments separated by `---`). Replace `<DOCKERHUB_ID>` and `<YOUR_PASSWORD>`:
+Create `message-board.yml` with **two** deployments separated by `---`. The Flask image is now the **PostgreSQL-based** `flask1.0` image you built in **Practice 2 Task 2.4** (not `lab3flask1.0`, which uses `data.json`). Postgres uses the official `postgres:14.1-alpine`. The env blocks below already reference the secret you will create in 11.3.3 — that is the form the course wants by the end of 11.3.4:
+
+Replace `<DOCKERHUB_ID>` (and `<YOUR_PASSWORD>` further down):
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flask-deployment
-  namespace: li
+  namespace: turbot
 spec:
   replicas: 1
   selector:
@@ -219,7 +268,7 @@ spec:
     spec:
       containers:
       - name: flask
-        image: <DOCKERHUB_ID>/lab3flask1.0
+        image: <DOCKERHUB_ID>/flask1.0
         ports:
         - containerPort: 5000
         env:
@@ -240,7 +289,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres-deployment
-  namespace: li
+  namespace: turbot
 spec:
   replicas: 1
   selector:
@@ -268,22 +317,51 @@ spec:
               name: postgres-secret-config
               key: password
 ```
-Create the secret and apply everything:
+
+### 11.3.3 — Create the Postgres Secret (kubectl, not YAML)
+
+The course is explicit that secrets must be created via `kubectl`, not embedded in `message-board.yml`. Pick any password you like (the value never leaves your cluster):
 ```bash
-kubectl create secret generic postgres-secret-config -n li --from-literal=username=postgres --from-literal=password=<YOUR_PASSWORD> && kubectl get secret postgres-secret-config -n li -o yaml
-kubectl apply -f message-board.yml && kubectl get deployments -n li && kubectl get pods -n li
+kubectl create secret generic postgres-secret-config -n turbot --from-literal=username=postgres --from-literal=password=<YOUR_PASSWORD>
+kubectl get secret postgres-secret-config -n turbot
+kubectl get secret postgres-secret-config -n turbot -o yaml
+```
+The `-o yaml` form should show `username` and `password` base64-encoded under `data:`. **Lab11-06** turns green at this point.
+
+### 11.3.4 — Wiring the Deployments to the Secret
+
+Already done in the YAML above — the `env:` blocks under both Flask and Postgres pull `POSTGRES_USER` / `POSTGRES_PASSWORD` from `secretKeyRef: postgres-secret-config`, and Flask additionally constructs `DATABASE_URL` using those values plus the (still-to-be-created) `postgresql` Service DNS name. No further file edits are needed for 11.3.4.
+
+### 11.3.5 — Apply, Screenshot, then Delete
+
+Apply the deployments and verify both pods come up. Flask will log `could not connect to postgresql` until services are added in 11.4 — that is **expected** because the Postgres Service does not yet exist:
+```bash
+kubectl apply -f message-board.yml && kubectl get deployments -n turbot && kubectl get pods -n turbot
+kubectl logs $(kubectl get po -n turbot -l app=flask -o jsonpath='{.items[0].metadata.name}') -n turbot
+kubectl logs $(kubectl get po -n turbot -l app=postgres -o jsonpath='{.items[0].metadata.name}') -n turbot
+```
+
+**Take the deliverable screenshot now** — `kubectl get deployments -n turbot` showing both `flask-deployment` and `postgres-deployment` — save as `11_3_deployments.png`.
+
+The course then asks you to delete the deployments before continuing (so 11.4's apply re-creates them alongside the new Services as one atomic step):
+```bash
+kubectl delete -f message-board.yml
 ```
 
 ### Exercise Deliverables
 
 - `first_deployment.yml`, `message-board.yml` committed.
-- Screenshot of `kubectl get deployments -n li` — save as `11_3_deployments.png`.
+- Screenshot of `kubectl get deployments -n turbot` — save as `11_3_deployments.png`.
+- Nagios checks **Lab11-05**, **Lab11-06** are green.
 
 ### Checklist (fill in before proceeding)
 
-- [ ] Secret created and visible.
-- [ ] Both deployments show desired replicas.
-- [ ] Transient CrashLoopBackOff is acceptable at this stage — the services are not yet in place.
+- [ ] Secret `postgres-secret-config` created and visible in YAML (base64).
+- [ ] Both deployments show desired replicas after apply.
+- [ ] Transient `CrashLoopBackOff` / `could not connect to postgresql` on Flask noted (no Service yet — fixed in 11.4).
+- [ ] `11_3_deployments.png` saved.
+- [ ] `message-board.yml` deleted (will be re-applied with services in 11.4).
+- [ ] Lab11-05, Lab11-06 green.
 
 ---
 
@@ -298,7 +376,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: service-flask
-  namespace: li
+  namespace: turbot
 spec:
   type: NodePort
   selector:
@@ -313,7 +391,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgresql
-  namespace: li
+  namespace: turbot
   labels:
     name: postgresql
 spec:
@@ -322,22 +400,32 @@ spec:
   ports:
   - port: 5432
 ```
-Apply, inspect, grab the NodePort, test scaling:
+Apply, list, grab the NodePort, then scale Flask:
 ```bash
-kubectl apply -f message-board.yml && kubectl get pods -o wide -n li && kubectl get svc -n li
-kubectl scale deployment flask-deployment --replicas=2 -n li && kubectl get pods -n li && kubectl get deployment -n li
+kubectl apply -f message-board.yml && kubectl get pods -o wide -n turbot && kubectl get svc -n turbot
+kubectl scale deployment flask-deployment --replicas=2 -n turbot && kubectl get pods -n turbot && kubectl get deployment -n turbot
 ```
-From your laptop, browse `http://<MASTER_IP>:<NODEPORT>` (NodePort starts with `3...`). If it times out, open the NodePort range in the OpenStack security group.
+The NodePort is the second number under `PORT(S)` for `service-flask` (e.g. `5000:31234/TCP` → NodePort is `31234`, always in `30000–32767`). From your laptop, browse:
+
+```
+http://172.17.65.54:<NODEPORT>
+```
+
+Post a couple of test messages through the form. If the page times out, double-check that the `K8S cluster` security group covers the NodePort range on **both** VMs.
+
+> If Flask shows a `relation "messages" does not exist` error after a Postgres redeploy, scale the Flask deployment to `0` then back to `2` so it re-runs its table-creation logic: `kubectl scale deployment flask-deployment --replicas=0 -n turbot && kubectl scale deployment flask-deployment --replicas=2 -n turbot`.
 
 ### Exercise Deliverables
 
-- Screenshot of the Message Board webpage reached via NodePort — save as `11_4_webpage.png`.
-- Screenshot of `kubectl get pods` after scaling to 2 replicas — save as `11_4_scale.png`.
+- Screenshot of the Message Board webpage reached via NodePort, showing the URL bar with the `172.17.65.54:<NODEPORT>` address visible — save as `11_4_webpage.png`.
+- Screenshot of `kubectl get pods -n turbot` after scaling Flask to 2 replicas — save as `11_4_scale.png`.
+- Nagios checks **Lab11-07**, **Lab11-08**, **Lab11-09** are green.
 
 ### Checklist (fill in before proceeding)
 
 - [ ] Messages can be posted via the browser.
 - [ ] Scaled Flask deployment shows 2 running replicas.
+- [ ] Lab11-07, Lab11-08, Lab11-09 green.
 
 ---
 
@@ -351,7 +439,6 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: postgres-pv-volume
-  namespace: li
   labels:
     type: local
 spec:
@@ -367,7 +454,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-db-claim
-  namespace: li
+  namespace: turbot
 spec:
   accessModes:
     - ReadWriteOnce
@@ -376,12 +463,21 @@ spec:
       storage: 3Gi
   storageClassName: manual
 ```
-Modify the Postgres block of `message-board.yml` — add `PGDATA` env and the mount/volume:
+Modify the **Postgres container** in `message-board.yml` — add the `PGDATA` env, the `volumeMounts`, and the pod-level `volumes` block (keep `POSTGRES_USER` and `POSTGRES_PASSWORD` from before):
 ```yaml
         env:
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
-        # keep POSTGRES_USER + POSTGRES_PASSWORD from before
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret-config
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret-config
+              key: password
         volumeMounts:
         - name: data-storage-volume
           mountPath: /var/lib/postgresql/data
@@ -390,59 +486,70 @@ Modify the Postgres block of `message-board.yml` — add `PGDATA` env and the mo
         persistentVolumeClaim:
           claimName: postgres-db-claim
 ```
-Apply + verify:
+Apply both files, verify the PV/PVC bind, and check the Postgres pod's mounts:
 ```bash
-kubectl apply -f data-volume.yml && kubectl get pv,pvc -n li
-kubectl apply -f message-board.yml && kubectl get pods -n li
-kubectl describe pod <POSTGRES_POD_NAME> -n li | less
+kubectl apply -f data-volume.yml && kubectl get pv,pvc -n turbot
+kubectl apply -f message-board.yml && kubectl get pods -n turbot
+kubectl describe pod $(kubectl get po -n turbot -l app=postgres -o jsonpath='{.items[0].metadata.name}') -n turbot
 ```
-Post a few messages through the web UI, then test persistence — delete and reapply Postgres, messages must stay:
+Open the Message Board, post a few messages, then **delete and recreate** the Postgres deployment — the messages must survive:
 ```bash
-kubectl delete deployment postgres-deployment -n li && kubectl apply -f message-board.yml
+kubectl delete deployment postgres-deployment -n turbot && kubectl apply -f message-board.yml && kubectl get pods -n turbot
 ```
+If Flask shows the empty/no-table error after the redeploy, scale Flask to `0` then back up so it re-creates the table on the persistent data:
+```bash
+kubectl scale deployment flask-deployment --replicas=0 -n turbot && kubectl scale deployment flask-deployment --replicas=2 -n turbot
+```
+
+> Use the Postgres-backed Message Board image, not the `data.json` variant — the `data.json` version writes to a file inside the container and will not benefit from the PV.
 
 ### Exercise Deliverables
 
 - `data-volume.yml`, updated `message-board.yml`.
-- Screenshot of `kubectl describe pod <postgres>` showing `Mounts:` and `Volumes:` sections — save as `11_5_mounts.png`.
+- Screenshot of `kubectl describe pod <postgres-pod>` clearly showing the `Mounts:` and `Volumes:` sections — save as `11_5_mounts.png`.
 
 ### Checklist (fill in before proceeding)
 
-- [ ] `kubectl get pv,pvc` shows `Bound`.
-- [ ] Messages survive a Postgres redeploy.
+- [ ] `kubectl get pv,pvc -n turbot` shows both `Bound`.
+- [ ] Posted messages survive `kubectl delete deployment postgres-deployment -n turbot` + reapply.
 
 ---
 
 ## Bonus — Liveness & Readiness Probes
 
+Reference walkthrough: https://github.com/sebinxavi/kubernetes-readiness
+
 ### Step-by-step
 
-Add to the Flask container in `message-board.yml`:
+Add to the **Flask container** in `message-board.yml`:
 ```yaml
-livenessProbe:
-  httpGet:
-    path: /
-    port: 5000
-  initialDelaySeconds: 0
-readinessProbe:
-  httpGet:
-    path: /?msg=Hello
-    port: 5000
-  initialDelaySeconds: 0
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 0
+        readinessProbe:
+          httpGet:
+            path: /?msg=Hello
+            port: 5000
+          initialDelaySeconds: 0
 ```
-Apply, watch, then raise `initialDelaySeconds` to 8 and compare:
+Apply, then describe a Flask pod and look at the `Events:` section — you should see `Unhealthy` / `Liveness probe failed` lines while the container is still warming up:
 ```bash
-kubectl apply -f message-board.yml && kubectl describe pod <flask_pod_name> -n li
+kubectl apply -f message-board.yml && kubectl describe pod $(kubectl get po -n turbot -l app=flask -o jsonpath='{.items[0].metadata.name}') -n turbot
 ```
+
+Now raise both `initialDelaySeconds` from `0` to `8`, re-apply, and describe again. The probe failures should disappear because the Flask process has time to bind port 5000 before Kubernetes starts probing.
 
 ### Exercise Deliverables
 
-- Screenshot of the Events section from `kubectl describe pod` — save as `11_bonus_events.png`.
-- Short note explaining the behaviour change after raising `initialDelaySeconds` — save as `11_bonus_note.md`. Follow the written-response style in [`common/README.md`](../common/README.md) (B1-level English, short sentences, mostly third person passive voice).
+- Screenshot of the `Events` section from `kubectl describe pod <flask-pod>` — save as `11_bonus_events.png`.
+- Short note `11_bonus_note.md` answering the course question: **Why did errors occur initially with lower delay values, and what changed when `initialDelaySeconds` was raised to 8?** Follow the written-response style in [`common/README.md`](../common/README.md) (B1-level English, short sentences, mostly third-person passive voice, cloud-computing terminology).
 
 ### Checklist (fill in before proceeding)
 
-- [ ] Liveness + readiness probes applied and pod restarts observed.
+- [ ] Liveness + readiness probes applied; pod restarts/probe failures observed at `initialDelaySeconds: 0`.
+- [ ] Probe failures gone at `initialDelaySeconds: 8`.
 - [ ] `11_bonus_events.png` saved.
 - [ ] `11_bonus_note.md` saved.
 
@@ -450,29 +557,47 @@ kubectl apply -f message-board.yml && kubectl describe pod <flask_pod_name> -n l
 
 ## Tear-down
 
-1. On the OpenStack dashboard, terminate both VMs. Detach and delete any leftover volumes.
+1. On Master, optionally clear the namespace and PV: `kubectl delete namespace turbot && kubectl delete pv postgres-pv-volume`.
+2. On the OpenStack dashboard, terminate **only** the `Lab11_Li_Worker` VM (and detach/delete its volume). **Do not delete the Lab 1 instance** — other practicals still need it.
+3. (Optional) Uninstall K3s on the Master so the Lab 1 VM goes back to its original state: `/usr/local/bin/k3s-uninstall.sh`.
 
 ### Final Practical Checklist
 
-**Screenshots archived:**
+**All Nagios checks green:**
+
+- [ ] Lab11-00, Lab11-01 — cluster up (Ex 11.1)
+- [ ] Lab11-02 — namespace `turbot` (Ex 11.2.1)
+- [ ] Lab11-03 — pod `first` (Ex 11.2.2)
+- [ ] Lab11-04 — replicaset `web` (Ex 11.2.3)
+- [ ] Lab11-05 — flask deployment (Ex 11.3.1)
+- [ ] Lab11-06 — secret `postgres-secret-config` (Ex 11.3.3)
+- [ ] Lab11-07, Lab11-08, Lab11-09 — services + scaling (Ex 11.4)
+
+**Mandatory screenshots (the four the course asks for):**
+
+- [ ] `11_3_deployments.png` — `kubectl get deployments -n turbot` (Ex 11.3)
+- [ ] `11_4_webpage.png` — Message Board via NodePort with the IP visible (Ex 11.4)
+- [ ] `11_5_mounts.png` — Postgres pod `Mounts:` / `Volumes:` (Ex 11.5)
+- [ ] `11_bonus_events.png` — probe events (Bonus)
+
+**Extra screenshots archived for safety (recommended):**
 
 - [ ] `11_1_nodes.png` — two `Ready` nodes (Ex 11.1)
 - [ ] `11_2_namespaces.png` — `kubectl get namespaces` (Ex 11.2)
-- [ ] `11_2_describe.png` — `kubectl describe pod first -n li` (Ex 11.2)
-- [ ] `11_3_deployments.png` — `kubectl get deployments -n li` (Ex 11.3)
-- [ ] `11_4_webpage.png` — Message Board via NodePort (Ex 11.4)
-- [ ] `11_4_scale.png` — pods after scaling (Ex 11.4)
-- [ ] `11_5_mounts.png` — Postgres pod with PV mount (Ex 11.5)
-- [ ] `11_bonus_events.png` — probe events (Bonus)
+- [ ] `11_2_describe.png` — `kubectl describe pod first -n turbot` (Ex 11.2)
+- [ ] `11_4_scale.png` — pods after scaling Flask to 2 (Ex 11.4)
 
-> The course spec asks for 6 screenshots — pick the 6 most legible above. The bonus screenshot is additional.
+**YAML & notes committed (the five files the course asks for):**
 
-**YAML & notes committed:**
-
-- [ ] `first_pod.yml`, `replicaset.yml`, `first_deployment.yml`, `message-board.yml`, `data-volume.yml`.
+- [ ] `first_pod.yml`
+- [ ] `replicaset.yml`
+- [ ] `first_deployment.yml`
+- [ ] `message-board.yml` (deployments + secret refs + services + PV mounts + probes)
+- [ ] `data-volume.yml`
 - [ ] `11_bonus_note.md` — probe behaviour write-up.
 
 **Cleanup & submission:**
 
-- [ ] Both VMs deleted in OpenStack.
-- [ ] All deliverables uploaded to the course submission system.
+- [ ] `Lab11_Li_Worker` VM (and its volume) deleted in OpenStack.
+- [ ] Lab 1 instance still alive at `172.17.65.54` (do not delete).
+- [ ] All deliverables uploaded to the course submission system while logged in and registered for the course.
